@@ -4,7 +4,7 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
-from models import Episode
+from models import StoredEpisode
 
 
 class FeedStateStore:
@@ -12,6 +12,7 @@ class FeedStateStore:
         database_path = Path(path)
         database_path.parent.mkdir(parents=True, exist_ok=True)
         self.connection = sqlite3.connect(database_path, check_same_thread=False)
+        self.connection.row_factory = sqlite3.Row
         self.connection.execute("PRAGMA journal_mode = WAL")
         self.connection.execute("PRAGMA foreign_keys = ON")
         self._create_schema()
@@ -24,9 +25,14 @@ class FeedStateStore:
             "SELECT bvid FROM known_videos WHERE uid = ?",
             (uid,),
         )
-        return {str(row[0]) for row in rows}
+        return {str(row["bvid"]) for row in rows}
 
-    def save_video(self, uid: int, bvid: str, episodes: list[Episode]) -> None:
+    def save_video(
+        self,
+        uid: int,
+        bvid: str,
+        episodes: list[StoredEpisode],
+    ) -> None:
         with self.connection:
             self.connection.execute(
                 """
@@ -63,7 +69,7 @@ class FeedStateStore:
                 ],
             )
 
-    def episodes_for_uid(self, uid: int, limit: int, base_url: str) -> list[Episode]:
+    def episodes_for_uid(self, uid: int, limit: int) -> list[StoredEpisode]:
         rows = self.connection.execute(
             """
             WITH selected_videos AS (
@@ -85,16 +91,17 @@ class FeedStateStore:
             (uid, limit, uid),
         )
         return [
-            Episode(
-                bvid=str(row[0]),
-                cid=int(row[1]),
-                title=str(row[2]),
-                description=str(row[3]),
-                published_at=datetime.fromtimestamp(int(row[4]), tz=timezone.utc),
-                duration=int(row[5]),
-                image_url=str(row[6]),
-                media_url=f"{base_url}/media/{row[0]}/{row[1]}.m4a",
-                media_length=int(row[7]),
+            StoredEpisode(
+                bvid=str(row["bvid"]),
+                cid=int(row["cid"]),
+                title=str(row["title"]),
+                description=str(row["description"]),
+                published_at=datetime.fromtimestamp(
+                    int(row["published_at"]), tz=timezone.utc
+                ),
+                duration=int(row["duration"]),
+                image_url=str(row["image_url"]),
+                media_length=int(row["media_length"]),
             )
             for row in rows
         ]

@@ -15,8 +15,9 @@ from bilibili import (
 )
 from config import load_config
 from database import FeedStateStore
+from feed import FeedRefresher, PodcastService
 from media import MediaProxy
-from rss import PodcastService
+from rss import RssRenderer
 
 
 @asynccontextmanager
@@ -32,10 +33,10 @@ async def lifespan(app: FastAPI):
     store = FeedStateStore(os.getenv("PODIUM_STATE_DB", "data/podium.db"))
 
     app.state.config = config
-    app.state.client = client
-    app.state.bilibili = bilibili
-    app.state.store = store
-    app.state.podcast = PodcastService(bilibili, config.base_url, store)
+    app.state.podcast = PodcastService(
+        FeedRefresher(bilibili, store, config.base_url),
+        RssRenderer(config.base_url),
+    )
     app.state.media = MediaProxy(bilibili, client)
     try:
         yield

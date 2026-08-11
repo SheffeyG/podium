@@ -69,13 +69,30 @@ class Episode:
 
 
 @dataclass(frozen=True, slots=True)
+class StoredEpisode:
+    bvid: str
+    cid: int
+    title: str
+    description: str
+    published_at: datetime
+    duration: int
+    image_url: str
+    media_length: int
+
+
+@dataclass(frozen=True, slots=True)
+class FeedSnapshot:
+    episodes: tuple[Episode, ...]
+    image_url: str
+
+
+@dataclass(frozen=True, slots=True)
 class AudioStream:
     url: str
     backup_urls: tuple[str, ...]
     mime_type: str
     codecs: str
     bandwidth: int
-    length: int | None = None
 
     @property
     def urls(self) -> tuple[str, ...]:

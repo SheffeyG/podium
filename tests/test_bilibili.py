@@ -103,7 +103,6 @@ async def test_fetches_video_and_selects_highest_compatible_aac() -> None:
         )
         video = await bilibili.get_video("BV1ab411c7mD")
         avatar = await bilibili.get_user_avatar(193147738)
-        user_bvids = await bilibili.get_user_video_bvids(193147738, limit=2)
         new_bvids = await bilibili.get_new_user_video_bvids(
             193147738,
             {"BV1GJ411x7h7"},
@@ -114,7 +113,6 @@ async def test_fetches_video_and_selects_highest_compatible_aac() -> None:
     assert video.title == "Example video"
     assert avatar == "https://example.com/avatar.jpg"
     assert len(video.pages) == 2
-    assert user_bvids == ("BV1ab411c7mD", "BV1GJ411x7h7")
     assert new_bvids == ("BV1ab411c7mD",)
     assert stream.bandwidth == 132000
     assert stream.codecs == "mp4a.40.2"

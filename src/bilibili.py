@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import hashlib
 import base64
+import hashlib
 import re
 import time
 from datetime import datetime, timezone
@@ -32,6 +32,13 @@ _DM_COVER_SOURCE = (
     "(0x0000C0XX)), SwiftShader driver)Google Inc. (Google)"
 )
 _DM_COVER = base64.b64encode(_DM_COVER_SOURCE.encode()).decode()[:-2]
+
+VIDEO_CACHE_TTL = 30 * 60
+AUDIO_CACHE_TTL = 60 * 60
+AUDIO_LENGTH_CACHE_TTL = 24 * 60 * 60
+USER_AVATAR_CACHE_TTL = 30 * 60
+SPACE_COOKIE_CACHE_TTL = 24 * 60 * 60
+WBI_KEY_CACHE_TTL = 6 * 60 * 60
 
 
 class BilibiliError(RuntimeError):
@@ -64,12 +71,10 @@ class BilibiliClient:
         cookie: str | None = None,
     ) -> None:
         self.client = client
-        self.sessdata = sessdata
         self.cookie = cookie or (f"SESSDATA={sessdata}" if sessdata else None)
         self.video_cache: TTLCache[str, VideoInfo] = TTLCache()
         self.audio_cache: TTLCache[tuple[str, int], AudioStream] = TTLCache()
         self.length_cache: TTLCache[tuple[str, int], int] = TTLCache()
-        self.user_video_cache: TTLCache[tuple[int, int], tuple[str, ...]] = TTLCache()
         self.user_avatar_cache: TTLCache[int, str] = TTLCache()
         self.space_cookie_cache: TTLCache[str, str] = TTLCache()
         self.wbi_cache: TTLCache[str, str] = TTLCache()
@@ -82,7 +87,7 @@ class BilibiliClient:
         return await self.video_cache.get_or_set(
             bvid,
             lambda: self._fetch_video(bvid),
-            ttl=30 * 60,
+            ttl=VIDEO_CACHE_TTL,
         )
 
     async def get_audio_stream(self, bvid: str, cid: int) -> AudioStream:
@@ -91,7 +96,7 @@ class BilibiliClient:
         return await self.audio_cache.get_or_set(
             key,
             lambda: self._fetch_audio_stream(bvid, cid),
-            ttl=60 * 60,
+            ttl=AUDIO_CACHE_TTL,
         )
 
     async def get_audio_length(self, bvid: str, cid: int) -> int:
@@ -102,18 +107,10 @@ class BilibiliClient:
             stream = await self.get_audio_stream(bvid, cid)
             return await self.probe_audio_length(stream)
 
-        return await self.length_cache.get_or_set(key, fetch, ttl=24 * 60 * 60)
-
-    async def get_user_video_bvids(self, uid: int, limit: int = 20) -> tuple[str, ...]:
-        if uid <= 0:
-            raise ValueError("Bilibili UID must be positive")
-        if not 1 <= limit <= 100:
-            raise ValueError("user video limit must be between 1 and 100")
-        key = (uid, limit)
-        return await self.user_video_cache.get_or_set(
+        return await self.length_cache.get_or_set(
             key,
-            lambda: self._fetch_user_video_bvids(uid, limit),
-            ttl=10 * 60,
+            fetch,
+            ttl=AUDIO_LENGTH_CACHE_TTL,
         )
 
     async def get_new_user_video_bvids(
@@ -138,7 +135,7 @@ class BilibiliClient:
         return await self.user_avatar_cache.get_or_set(
             uid,
             lambda: self._fetch_user_avatar(uid),
-            ttl=30 * 60,
+            ttl=USER_AVATAR_CACHE_TTL,
         )
 
     async def _fetch_user_avatar(self, uid: int) -> str:
@@ -183,7 +180,7 @@ class BilibiliClient:
             cookie = await self.space_cookie_cache.get_or_set(
                 "space-cookie",
                 self._fetch_space_cookie,
-                ttl=24 * 60 * 60,
+                ttl=SPACE_COOKIE_CACHE_TTL,
             )
             data = await self._api_get(
                 "/x/space/wbi/arc/search",
@@ -339,7 +336,7 @@ class BilibiliClient:
         mixin_key = await self.wbi_cache.get_or_set(
             "mixin-key",
             self._fetch_wbi_mixin_key,
-            ttl=6 * 60 * 60,
+            ttl=WBI_KEY_CACHE_TTL,
         )
         signed = dict(params)
         signed["wts"] = int(time.time())

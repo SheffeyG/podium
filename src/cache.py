@@ -38,9 +38,6 @@ class TTLCache(Generic[K, V]):
     def delete(self, key: K) -> None:
         self._entries.pop(key, None)
 
-    def clear(self) -> None:
-        self._entries.clear()
-
     async def get_or_set(
         self,
         key: K,

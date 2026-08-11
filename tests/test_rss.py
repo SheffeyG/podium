@@ -4,8 +4,9 @@ from lxml import etree
 
 from bilibili import NoCompatibleAudioError
 from database import FeedStateStore
+from feed import FeedRefresher, PodcastService
 from models import FeedConfig, UserSource, VideoInfo, VideoPage
-from rss import ITUNES_NS, PodcastService
+from rss import ITUNES_NS, RssRenderer
 
 
 class FakeBilibili:
@@ -47,10 +48,14 @@ async def test_builds_valid_rss_with_one_episode_per_page(tmp_path) -> None:
         users=(UserSource(uid=193147738, limit=2),),
         author="Example author",
     )
-    service = PodcastService(  # type: ignore[arg-type]
-        FakeBilibili(),
-        "https://podium.example.com",
-        FeedStateStore(tmp_path / "state.db"),
+    base_url = "https://podium.example.com"
+    service = PodcastService(
+        FeedRefresher(
+            FakeBilibili(),
+            FeedStateStore(tmp_path / "state.db"),
+            base_url,
+        ),
+        RssRenderer(base_url),
     )
 
     document = etree.fromstring(await service.build_feed(feed))
@@ -122,10 +127,10 @@ async def test_stops_at_known_bvids_and_reuses_persisted_episodes(tmp_path) -> N
     )
     bilibili = SkippingFakeBilibili()
     store = FeedStateStore(tmp_path / "state.db")
-    service = PodcastService(  # type: ignore[arg-type]
-        bilibili,
-        "https://podium.example.com",
-        store,
+    base_url = "https://podium.example.com"
+    service = PodcastService(
+        FeedRefresher(bilibili, store, base_url),
+        RssRenderer(base_url),
     )
 
     first_document = etree.fromstring(await service.build_feed(feed))
