@@ -1,0 +1,16 @@
+{
+  "code": 0,
+  "message": "0",
+  "data": {
+    "bvid": "BV1ab411c7mD",
+    "title": "Example video",
+    "desc": "Example description",
+    "pic": "https://example.com/cover.jpg",
+    "pubdate": 1704067200,
+    "owner": {"name": "Example author"},
+    "pages": [
+      {"cid": 1001, "page": 1, "part": "Part one", "duration": 120},
+      {"cid": 1002, "page": 2, "part": "Part two", "duration": 180}
+    ]
+  }
+}

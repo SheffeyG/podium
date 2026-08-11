@@ -1,0 +1,16 @@
+base_url: http://localhost:8000
+
+bilibili:
+  # Prefer the BILIBILI_COOKIE environment variable in deployed environments.
+  cookie: null
+  sessdata: null
+
+feeds:
+  - slug: uid-123456
+    title: Video Audio Feed
+    description: Audio from the latest video submissions
+    author: Podium
+    language: zh-cn
+    users:
+      - uid: 123456
+        limit: 20

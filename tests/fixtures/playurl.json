@@ -1,0 +1,34 @@
+{
+  "code": 0,
+  "message": "0",
+  "data": {
+    "dash": {
+      "audio": [
+        {
+          "id": 30216,
+          "baseUrl": "https://cdn.example.com/audio-64.m4s",
+          "backupUrl": [],
+          "bandwidth": 64000,
+          "mimeType": "audio/mp4",
+          "codecs": "mp4a.40.2"
+        },
+        {
+          "id": 30232,
+          "baseUrl": "https://cdn.example.com/audio-132.m4s",
+          "backupUrl": ["https://backup.example.com/audio-132.m4s"],
+          "bandwidth": 132000,
+          "mimeType": "audio/mp4",
+          "codecs": "mp4a.40.2"
+        },
+        {
+          "id": 30250,
+          "baseUrl": "https://cdn.example.com/audio-dolby.m4s",
+          "backupUrl": [],
+          "bandwidth": 448000,
+          "mimeType": "audio/mp4",
+          "codecs": "ec-3"
+        }
+      ]
+    }
+  }
+}
