@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from lxml import etree
 
 from bilibili import NoCompatibleAudioError
+from database import FeedStateStore
 from models import FeedConfig, UserSource, VideoInfo, VideoPage
 from rss import ITUNES_NS, PodcastService
 
@@ -12,9 +13,12 @@ class FakeBilibili:
         assert uid == 193147738
         return "https://example.com/avatar.jpg"
 
-    async def get_user_video_bvids(self, uid: int, limit: int) -> tuple[str, ...]:
+    async def get_new_user_video_bvids(
+        self, uid: int, known_bvids: set[str], scan_limit: int
+    ) -> tuple[str, ...]:
         assert uid == 193147738
-        assert limit == 100
+        assert known_bvids == set()
+        assert scan_limit == 100
         return ("BV1ab411c7mD", "BV1GJ411x7h7")
 
     async def get_video(self, bvid: str) -> VideoInfo:
@@ -35,7 +39,7 @@ class FakeBilibili:
         return cid * 10
 
 
-async def test_builds_valid_rss_with_one_episode_per_page() -> None:
+async def test_builds_valid_rss_with_one_episode_per_page(tmp_path) -> None:
     feed = FeedConfig(
         slug="talks",
         title="Talks",
@@ -43,7 +47,11 @@ async def test_builds_valid_rss_with_one_episode_per_page() -> None:
         users=(UserSource(uid=193147738, limit=2),),
         author="Example author",
     )
-    service = PodcastService(FakeBilibili(), "https://podium.example.com")  # type: ignore[arg-type]
+    service = PodcastService(  # type: ignore[arg-type]
+        FakeBilibili(),
+        "https://podium.example.com",
+        FeedStateStore(tmp_path / "state.db"),
+    )
 
     document = etree.fromstring(await service.build_feed(feed))
     items = document.xpath("/rss/channel/item")
@@ -66,11 +74,20 @@ async def test_builds_valid_rss_with_one_episode_per_page() -> None:
 
 
 class SkippingFakeBilibili:
+    def __init__(self) -> None:
+        self.refresh_known: list[set[str]] = []
+        self.audio_checks = 0
+
     async def get_user_avatar(self, uid: int) -> str:
         return "https://example.com/avatar.jpg"
 
-    async def get_user_video_bvids(self, uid: int, limit: int) -> tuple[str, ...]:
-        assert limit == 100
+    async def get_new_user_video_bvids(
+        self, uid: int, known_bvids: set[str], scan_limit: int
+    ) -> tuple[str, ...]:
+        assert scan_limit == 100
+        self.refresh_known.append(known_bvids)
+        if known_bvids:
+            return ()
         return ("BV1bad111111", "BV1good11111", "BV1good22222")
 
     async def get_video(self, bvid: str) -> VideoInfo:
@@ -90,26 +107,38 @@ class SkippingFakeBilibili:
         )
 
     async def get_audio_length(self, bvid: str, cid: int) -> int:
+        self.audio_checks += 1
         if cid == 1:
             raise NoCompatibleAudioError("no compatible audio")
         return cid * 100
 
 
-async def test_skips_incompatible_candidates_until_limit_is_filled() -> None:
+async def test_stops_at_known_bvids_and_reuses_persisted_episodes(tmp_path) -> None:
     feed = FeedConfig(
         slug="talks",
         title="Talks",
         description="Selected talks",
         users=(UserSource(uid=193147738, limit=2),),
     )
+    bilibili = SkippingFakeBilibili()
+    store = FeedStateStore(tmp_path / "state.db")
     service = PodcastService(  # type: ignore[arg-type]
-        SkippingFakeBilibili(), "https://podium.example.com"
+        bilibili,
+        "https://podium.example.com",
+        store,
     )
 
+    first_document = etree.fromstring(await service.build_feed(feed))
     document = etree.fromstring(await service.build_feed(feed))
     guids = [item.findtext("guid") for item in document.xpath("/rss/channel/item")]
 
+    assert len(first_document.xpath("/rss/channel/item")) == 2
     assert guids == [
         "bilibili:BV1good22222:3",
         "bilibili:BV1good11111:2",
+    ]
+    assert bilibili.audio_checks == 3
+    assert bilibili.refresh_known == [
+        set(),
+        {"BV1bad111111", "BV1good11111", "BV1good22222"},
     ]

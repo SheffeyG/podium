@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
 
 import httpx
@@ -13,6 +14,7 @@ from bilibili import (
     VideoNotFoundError,
 )
 from config import load_config
+from database import FeedStateStore
 from media import MediaProxy
 from rss import PodcastService
 
@@ -27,15 +29,18 @@ async def lifespan(app: FastAPI):
         sessdata=config.sessdata,
         cookie=config.bilibili_cookie,
     )
+    store = FeedStateStore(os.getenv("PODIUM_STATE_DB", "data/podium.db"))
 
     app.state.config = config
     app.state.client = client
     app.state.bilibili = bilibili
-    app.state.podcast = PodcastService(bilibili, config.base_url)
+    app.state.store = store
+    app.state.podcast = PodcastService(bilibili, config.base_url, store)
     app.state.media = MediaProxy(bilibili, client)
     try:
         yield
     finally:
+        store.close()
         await client.aclose()
 
 
@@ -81,7 +86,7 @@ async def podcast_feed(slug: str, request: Request) -> Response:
         content=xml,
         media_type=None,
         headers={
-            "Cache-Control": "public, max-age=300",
+            "Cache-Control": "no-cache",
             "Content-Type": "application/rss+xml; charset=utf-8",
         },
     )

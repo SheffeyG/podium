@@ -116,6 +116,22 @@ class BilibiliClient:
             ttl=10 * 60,
         )
 
+    async def get_new_user_video_bvids(
+        self,
+        uid: int,
+        known_bvids: set[str],
+        scan_limit: int = 100,
+    ) -> tuple[str, ...]:
+        if uid <= 0:
+            raise ValueError("Bilibili UID must be positive")
+        if not 1 <= scan_limit <= 100:
+            raise ValueError("user video scan limit must be between 1 and 100")
+        return await self._fetch_user_video_bvids(
+            uid,
+            scan_limit,
+            stop_at=known_bvids,
+        )
+
     async def get_user_avatar(self, uid: int) -> str:
         if uid <= 0:
             raise ValueError("Bilibili UID must be positive")
@@ -135,7 +151,12 @@ class BilibiliClient:
         except (KeyError, TypeError) as exc:
             raise BilibiliError("Bilibili returned malformed user profile data") from exc
 
-    async def _fetch_user_video_bvids(self, uid: int, limit: int) -> tuple[str, ...]:
+    async def _fetch_user_video_bvids(
+        self,
+        uid: int,
+        limit: int,
+        stop_at: set[str] | None = None,
+    ) -> tuple[str, ...]:
         bvids: list[str] = []
         page_number = 1
         total: int | None = None
@@ -183,14 +204,15 @@ class BilibiliClient:
             except (KeyError, TypeError, ValueError) as exc:
                 raise BilibiliError("Bilibili returned malformed user videos") from exc
 
-            page_bvids = []
             for video in videos:
                 if isinstance(video, dict) and isinstance(video.get("bvid"), str):
                     try:
-                        page_bvids.append(parse_bvid(video["bvid"]))
+                        bvid = parse_bvid(video["bvid"])
                     except ValueError:
                         continue
-            bvids.extend(page_bvids)
+                    if stop_at and bvid in stop_at:
+                        return tuple(dict.fromkeys(bvids))
+                    bvids.append(bvid)
 
             if not videos or len(bvids) >= total:
                 break

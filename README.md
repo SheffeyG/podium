@@ -40,6 +40,12 @@ feed must contain at least one user. `limit` is the target number of compatible
 videos in the feed: Podium scans up to the latest 100 submissions and skips
 videos that do not expose a standalone AAC audio track.
 
+Feed updates are request-driven; Podium does not run a timer. Each RSS request
+checks submissions from newest to oldest and stops as soon as it reaches a
+known BV identifier. Known videos and stable episode metadata are persisted in
+`data/podium.db`, so service restarts do not trigger another full scan. Set
+`PODIUM_STATE_DB` to override the database path.
+
 Video user-space APIs may be subject to platform risk control and generally
 need an authenticated browser cookie. Export the complete cookie through the
 environment instead of storing it in YAML:
