@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
 from models import StoredEpisode
+from mp4 import ManifestFragment, VirtualMediaManifest
 
 
 class FeedStateStore:
@@ -106,6 +108,85 @@ class FeedStateStore:
             for row in rows
         ]
 
+    def save_manifest(
+        self,
+        manifest_id: str,
+        bvid: str,
+        cid: int,
+        manifest: VirtualMediaManifest,
+    ) -> None:
+        fragments = json.dumps(
+            [
+                {
+                    "source_index": fragment.source_index,
+                    "source_start": fragment.source_start,
+                    "size": fragment.size,
+                    "output_start": fragment.output_start,
+                    "duration": fragment.duration,
+                    "new_decode_time": fragment.new_decode_time,
+                }
+                for fragment in manifest.fragments
+            ],
+            separators=(",", ":"),
+        )
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT INTO media_manifests (
+                    manifest_id, bvid, cid, prefix, fragments, timescale,
+                    output_length, output_duration
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (manifest_id) DO UPDATE SET
+                    prefix = excluded.prefix,
+                    fragments = excluded.fragments,
+                    timescale = excluded.timescale,
+                    output_length = excluded.output_length,
+                    output_duration = excluded.output_duration
+                """,
+                (
+                    manifest_id,
+                    bvid,
+                    cid,
+                    manifest.prefix,
+                    fragments,
+                    manifest.timescale,
+                    manifest.output_length,
+                    manifest.output_duration,
+                ),
+            )
+
+    def get_manifest(
+        self, manifest_id: str, bvid: str, cid: int
+    ) -> VirtualMediaManifest | None:
+        row = self.connection.execute(
+            """
+            SELECT prefix, fragments, timescale, output_length, output_duration
+            FROM media_manifests
+            WHERE manifest_id = ? AND bvid = ? AND cid = ?
+            """,
+            (manifest_id, bvid, cid),
+        ).fetchone()
+        if row is None:
+            return None
+        fragments = tuple(
+            ManifestFragment(
+                source_index=int(item["source_index"]),
+                source_start=int(item["source_start"]),
+                size=int(item["size"]),
+                output_start=int(item["output_start"]),
+                duration=int(item["duration"]),
+                new_decode_time=int(item["new_decode_time"]),
+            )
+            for item in json.loads(str(row["fragments"]))
+        )
+        return VirtualMediaManifest(
+            prefix=bytes(row["prefix"]),
+            fragments=fragments,
+            timescale=int(row["timescale"]),
+            output_length=int(row["output_length"]),
+            output_duration=float(row["output_duration"]),
+        )
+
     def _create_schema(self) -> None:
         with self.connection:
             self.connection.executescript(
@@ -135,5 +216,20 @@ class FeedStateStore:
 
                 CREATE INDEX IF NOT EXISTS episodes_uid_published
                     ON episodes (uid, published_at DESC);
+
+                CREATE TABLE IF NOT EXISTS media_manifests (
+                    manifest_id TEXT PRIMARY KEY,
+                    bvid TEXT NOT NULL,
+                    cid INTEGER NOT NULL,
+                    prefix BLOB NOT NULL,
+                    fragments TEXT NOT NULL,
+                    timescale INTEGER NOT NULL,
+                    output_length INTEGER NOT NULL,
+                    output_duration REAL NOT NULL,
+                    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+                );
+
+                CREATE INDEX IF NOT EXISTS media_manifests_media
+                    ON media_manifests (bvid, cid);
                 """
             )

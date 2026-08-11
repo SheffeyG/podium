@@ -7,7 +7,7 @@ from typing import Any
 
 import yaml
 
-from models import AppConfig, FeedConfig, UserSource
+from models import AppConfig, FeedConfig, SponsorBlockConfig, UserSource
 
 
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
@@ -128,9 +128,34 @@ def load_config(path: str | Path | None = None) -> AppConfig:
     if cookie is not None and not isinstance(cookie, str):
         raise ConfigError("config.bilibili.cookie must be a string or null")
 
+    raw_sponsorblock = raw.get("sponsorblock", {}) or {}
+    if not isinstance(raw_sponsorblock, dict):
+        raise ConfigError("config.sponsorblock must be a mapping")
+    enabled = raw_sponsorblock.get("enabled", False)
+    if not isinstance(enabled, bool):
+        raise ConfigError("config.sponsorblock.enabled must be a boolean")
+    server_url = str(
+        raw_sponsorblock.get("server_url", "https://bsbsb.top")
+    ).rstrip("/")
+    if not server_url.startswith(("http://", "https://")):
+        raise ConfigError("config.sponsorblock.server_url must be an HTTP URL")
+    categories = raw_sponsorblock.get(
+        "categories",
+        ["sponsor", "selfpromo", "interaction", "intro", "outro"],
+    )
+    if not isinstance(categories, list) or not all(
+        isinstance(category, str) and category for category in categories
+    ):
+        raise ConfigError("config.sponsorblock.categories must be a list of strings")
+
     return AppConfig(
         base_url=base_url,
         feeds=tuple(feeds),
+        sponsorblock=SponsorBlockConfig(
+            enabled=enabled,
+            server_url=server_url,
+            categories=tuple(dict.fromkeys(categories)),
+        ),
         sessdata=sessdata or None,
         bilibili_cookie=cookie or None,
     )

@@ -5,7 +5,7 @@ import logging
 
 from bilibili import NoCompatibleAudioError
 from models import Episode, FeedConfig, FeedSnapshot, StoredEpisode
-from protocols import FeedStore, VideoSource
+from protocols import EpisodeEditor, FeedStore, VideoSource
 from rss import RssRenderer
 
 
@@ -20,10 +20,12 @@ class FeedRefresher:
         source: VideoSource,
         store: FeedStore,
         base_url: str,
+        editor: EpisodeEditor | None = None,
     ) -> None:
         self.source = source
         self.store = store
         self.base_url = base_url.rstrip("/")
+        self.editor = editor
 
     async def refresh(self, feed: FeedConfig) -> FeedSnapshot:
         episodes: list[Episode] = []
@@ -79,9 +81,15 @@ class FeedRefresher:
                         break
 
             stored_episodes = self.store.episodes_for_uid(user.uid, user.limit)
-            episodes.extend(
+            public_episodes = [
                 self._public_episode(episode) for episode in stored_episodes
-            )
+            ]
+            if self.editor is not None:
+                public_episodes = [
+                    await self.editor.edit_episode(episode)
+                    for episode in public_episodes
+                ]
+            episodes.extend(public_episodes)
             stored_videos = len({episode.bvid for episode in stored_episodes})
             if stored_videos < user.limit:
                 logger.warning(

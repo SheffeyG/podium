@@ -58,6 +58,34 @@ export BILIBILI_COOKIE='SESSDATA=...; bili_jct=...; DedeUserID=...; buvid3=...; 
 session. A full `BILIBILI_COOKIE` takes precedence. Do not provide an account
 password, commit cookies, put them in feed URLs, or expose them in logs.
 
+## Sponsor skipping
+
+SponsorBlock-compatible skipping is optional:
+
+```yaml
+sponsorblock:
+  enabled: true
+  server_url: https://bsbsb.top
+  categories:
+    - sponsor
+    - selfpromo
+    - interaction
+    - intro
+    - outro
+```
+
+Podium maps skip ranges to fragmented MP4 segments, rebuilds the SIDX index,
+and rewrites fragment decode timestamps while proxying the original AAC data.
+It does not decode, re-encode, or store complete audio files. The first version
+uses fragment-level precision; Bilibili audio fragments are commonly several
+seconds long, so skip boundaries are approximate.
+
+Edited enclosure URLs include a manifest hash. The manifest contains only MP4
+index data and source byte mappings and is persisted in `data/podium.db` so the
+URL remains valid after a restart. If the SponsorBlock service is unavailable,
+there are no matching segments, or the source is not a supported fragmented
+MP4, Podium falls back to the original audio URL.
+
 ## Run
 
 ```bash
@@ -69,6 +97,7 @@ Endpoints:
 
 - `GET /feeds/{slug}.xml` returns a podcast RSS feed.
 - `GET|HEAD /media/{bvid}/{cid}.m4a` proxies the selected AAC stream.
+- `GET|HEAD /media/{bvid}/{cid}/{manifest}.m4a` serves virtual edited audio.
 - `GET /health` reports process and configuration status.
 
 For a custom config path, set `PODIUM_CONFIG=/path/to/config.yaml`.

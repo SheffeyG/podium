@@ -18,6 +18,9 @@ def test_load_config_and_environment_cookie(tmp_path: Path, monkeypatch: pytest.
 base_url: https://podium.example.com/
 bilibili:
   sessdata: from-file
+sponsorblock:
+  enabled: true
+  categories: [sponsor, intro, sponsor]
 feeds:
   - slug: talks
     title: Talks
@@ -36,6 +39,8 @@ feeds:
     assert config.base_url == "https://podium.example.com"
     assert config.sessdata == "from-environment"
     assert config.bilibili_cookie == "SESSDATA=full; DedeUserID=123"
+    assert config.sponsorblock.enabled is True
+    assert config.sponsorblock.categories == ("sponsor", "intro")
     feed = config.feed_by_slug("talks")
     assert feed is not None
     assert feed.users[0].uid == 193147738

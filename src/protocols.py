@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from models import StoredEpisode, VideoInfo
+from models import Episode, StoredEpisode, VideoInfo
+from mp4 import VirtualMediaManifest
 
 
 class VideoSource(Protocol):
@@ -28,3 +29,21 @@ class FeedStore(Protocol):
     ) -> None: ...
 
     def episodes_for_uid(self, uid: int, limit: int) -> list[StoredEpisode]: ...
+
+
+class ManifestStore(Protocol):
+    def save_manifest(
+        self,
+        manifest_id: str,
+        bvid: str,
+        cid: int,
+        manifest: VirtualMediaManifest,
+    ) -> None: ...
+
+    def get_manifest(
+        self, manifest_id: str, bvid: str, cid: int
+    ) -> VirtualMediaManifest | None: ...
+
+
+class EpisodeEditor(Protocol):
+    async def edit_episode(self, episode: Episode) -> Episode: ...

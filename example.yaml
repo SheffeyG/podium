@@ -5,6 +5,16 @@ bilibili:
   cookie: null
   sessdata: null
 
+sponsorblock:
+  enabled: false
+  server_url: https://bsbsb.top
+  categories:
+    - sponsor
+    - selfpromo
+    - interaction
+    - intro
+    - outro
+
 feeds:
   - slug: uid-123456
     title: Video Audio Feed

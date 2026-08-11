@@ -21,9 +21,23 @@ class FeedConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class SponsorBlockConfig:
+    enabled: bool = False
+    server_url: str = "https://bsbsb.top"
+    categories: tuple[str, ...] = (
+        "sponsor",
+        "selfpromo",
+        "interaction",
+        "intro",
+        "outro",
+    )
+
+
+@dataclass(frozen=True, slots=True)
 class AppConfig:
     base_url: str
     feeds: tuple[FeedConfig, ...]
+    sponsorblock: SponsorBlockConfig = SponsorBlockConfig()
     sessdata: str | None = field(default=None, repr=False)
     bilibili_cookie: str | None = field(default=None, repr=False)
 

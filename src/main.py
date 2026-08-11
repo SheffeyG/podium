@@ -18,6 +18,8 @@ from database import FeedStateStore
 from feed import FeedRefresher, PodcastService
 from media import MediaProxy
 from rss import RssRenderer
+from sponsorblock import SponsorBlockClient
+from virtual_media import VirtualMediaError, VirtualMediaProxy, VirtualMediaService
 
 
 @asynccontextmanager
@@ -31,13 +33,35 @@ async def lifespan(app: FastAPI):
         cookie=config.bilibili_cookie,
     )
     store = FeedStateStore(os.getenv("PODIUM_STATE_DB", "data/podium.db"))
+    virtual_media: VirtualMediaService | None = None
+    virtual_proxy: VirtualMediaProxy | None = None
+    if config.sponsorblock.enabled:
+        sponsorblock = SponsorBlockClient(
+            client,
+            config.sponsorblock.server_url,
+            config.sponsorblock.categories,
+        )
+        virtual_media = VirtualMediaService(
+            sponsorblock,
+            bilibili,
+            client,
+            store,
+            config.base_url,
+        )
+        virtual_proxy = VirtualMediaProxy(bilibili, client, store)
 
     app.state.config = config
     app.state.podcast = PodcastService(
-        FeedRefresher(bilibili, store, config.base_url),
+        FeedRefresher(
+            bilibili,
+            store,
+            config.base_url,
+            editor=virtual_media,
+        ),
         RssRenderer(config.base_url),
     )
     app.state.media = MediaProxy(bilibili, client)
+    app.state.virtual_media = virtual_proxy
     try:
         yield
     finally:
@@ -65,6 +89,13 @@ async def no_audio_handler(
 @app.exception_handler(BilibiliError)
 async def bilibili_error_handler(
     request: Request, exc: BilibiliError
+) -> JSONResponse:
+    return JSONResponse(status_code=502, content={"detail": str(exc)})
+
+
+@app.exception_handler(VirtualMediaError)
+async def virtual_media_error_handler(
+    request: Request, exc: VirtualMediaError
 ) -> JSONResponse:
     return JSONResponse(status_code=502, content={"detail": str(exc)})
 
@@ -101,5 +132,24 @@ async def podcast_media(
 ) -> Response:
     try:
         return await request.app.state.media.handle(bvid, cid, request)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="invalid media identifier") from exc
+
+
+@app.api_route(
+    "/media/{bvid}/{cid}/{manifest_id}.m4a",
+    methods=["GET", "HEAD"],
+)
+async def edited_podcast_media(
+    bvid: str,
+    cid: int,
+    manifest_id: str,
+    request: Request,
+) -> Response:
+    proxy = request.app.state.virtual_media
+    if proxy is None:
+        raise HTTPException(status_code=404, detail="edited media is disabled")
+    try:
+        return await proxy.handle(bvid, cid, manifest_id, request)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail="invalid media identifier") from exc
