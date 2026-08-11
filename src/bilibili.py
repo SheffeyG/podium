@@ -70,6 +70,7 @@ class BilibiliClient:
         self.audio_cache: TTLCache[tuple[str, int], AudioStream] = TTLCache()
         self.length_cache: TTLCache[tuple[str, int], int] = TTLCache()
         self.user_video_cache: TTLCache[tuple[int, int], tuple[str, ...]] = TTLCache()
+        self.user_avatar_cache: TTLCache[int, str] = TTLCache()
         self.space_cookie_cache: TTLCache[str, str] = TTLCache()
         self.wbi_cache: TTLCache[str, str] = TTLCache()
 
@@ -114,6 +115,25 @@ class BilibiliClient:
             lambda: self._fetch_user_video_bvids(uid, limit),
             ttl=10 * 60,
         )
+
+    async def get_user_avatar(self, uid: int) -> str:
+        if uid <= 0:
+            raise ValueError("Bilibili UID must be positive")
+        return await self.user_avatar_cache.get_or_set(
+            uid,
+            lambda: self._fetch_user_avatar(uid),
+            ttl=30 * 60,
+        )
+
+    async def _fetch_user_avatar(self, uid: int) -> str:
+        data = await self._api_get("/x/web-interface/card", {"mid": uid})
+        try:
+            avatar = data["card"]["face"]
+            if not isinstance(avatar, str) or not avatar:
+                raise TypeError
+            return avatar
+        except (KeyError, TypeError) as exc:
+            raise BilibiliError("Bilibili returned malformed user profile data") from exc
 
     async def _fetch_user_video_bvids(self, uid: int, limit: int) -> tuple[str, ...]:
         bvids: list[str] = []

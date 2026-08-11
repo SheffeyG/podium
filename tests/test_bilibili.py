@@ -31,6 +31,20 @@ async def test_fetches_video_and_selects_highest_compatible_aac() -> None:
         requests.append(request)
         if request.url.path == "/x/web-interface/view":
             return httpx.Response(200, json=_load_fixture("video_view.json"))
+        if request.url.path == "/x/web-interface/card":
+            assert request.url.params["mid"] == "193147738"
+            return httpx.Response(
+                200,
+                json={
+                    "code": 0,
+                    "data": {
+                        "card": {
+                            "name": "Example author",
+                            "face": "https://example.com/avatar.jpg",
+                        }
+                    },
+                },
+            )
         if request.url.path == "/x/web-interface/nav":
             return httpx.Response(
                 200,
@@ -88,11 +102,13 @@ async def test_fetches_video_and_selects_highest_compatible_aac() -> None:
             cookie="SESSDATA=secret; DedeUserID=123",
         )
         video = await bilibili.get_video("BV1ab411c7mD")
+        avatar = await bilibili.get_user_avatar(193147738)
         user_bvids = await bilibili.get_user_video_bvids(193147738, limit=2)
         stream = await bilibili.get_audio_stream(video.bvid, video.pages[0].cid)
         length = await bilibili.get_audio_length(video.bvid, video.pages[0].cid)
 
     assert video.title == "Example video"
+    assert avatar == "https://example.com/avatar.jpg"
     assert len(video.pages) == 2
     assert user_bvids == ("BV1ab411c7mD", "BV1GJ411x7h7")
     assert stream.bandwidth == 132000

@@ -28,7 +28,7 @@ class PodcastService:
 
     async def _build_feed(self, feed: FeedConfig) -> bytes:
         episodes: list[Episode] = []
-        feed_image = ""
+        feed_image = await self.bilibili.get_user_avatar(feed.users[0].uid)
         bvids: list[str] = []
         for user in feed.users:
             bvids.extend(
@@ -37,7 +37,6 @@ class PodcastService:
 
         for bvid in dict.fromkeys(bvids):
             video = await self.bilibili.get_video(bvid)
-            feed_image = feed_image or video.image_url
             multiple_pages = len(video.pages) > 1
             for page in video.pages:
                 length = await self.bilibili.get_audio_length(video.bvid, page.cid)
@@ -88,6 +87,10 @@ class PodcastService:
         )
         if feed_image:
             etree.SubElement(channel, f"{{{ITUNES_NS}}}image", href=feed_image)
+            image = etree.SubElement(channel, "image")
+            self._text(image, "url", feed_image)
+            self._text(image, "title", feed.title)
+            self._text(image, "link", self.base_url)
 
         for episode in episodes:
             item = etree.SubElement(channel, "item")

@@ -7,6 +7,10 @@ from rss import ITUNES_NS, PodcastService
 
 
 class FakeBilibili:
+    async def get_user_avatar(self, uid: int) -> str:
+        assert uid == 193147738
+        return "https://example.com/avatar.jpg"
+
     async def get_user_video_bvids(self, uid: int, limit: int) -> tuple[str, ...]:
         assert uid == 193147738
         assert limit == 2
@@ -44,7 +48,14 @@ async def test_builds_valid_rss_with_one_episode_per_page() -> None:
     items = document.xpath("/rss/channel/item")
 
     assert len(items) == 4
+    assert document.find(f"./channel/{{{ITUNES_NS}}}image").get("href") == (
+        "https://example.com/avatar.jpg"
+    )
+    assert document.findtext("./channel/image/url") == "https://example.com/avatar.jpg"
     assert items[0].findtext("guid") == "bilibili:BV1ab411c7mD:1001"
+    assert items[0].find(f"{{{ITUNES_NS}}}image").get("href") == (
+        "https://example.com/cover.jpg"
+    )
     assert items[0].find("guid").get("isPermaLink") == "false"
     assert items[0].find("enclosure").get("url") == (
         "https://podium.example.com/media/BV1ab411c7mD/1001.m4a"
