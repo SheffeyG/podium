@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import logging
 from email.utils import format_datetime
 
 from lxml import etree
 
-from bilibili import BilibiliClient
+from bilibili import BilibiliClient, NoCompatibleAudioError
 from cache import TTLCache
 from models import Episode, FeedConfig
+
+
+logger = logging.getLogger(__name__)
 
 
 ITUNES_NS = "http://www.itunes.com/dtds/podcast-1.0.dtd"
@@ -29,32 +33,64 @@ class PodcastService:
     async def _build_feed(self, feed: FeedConfig) -> bytes:
         episodes: list[Episode] = []
         feed_image = await self.bilibili.get_user_avatar(feed.users[0].uid)
-        bvids: list[str] = []
+        seen_bvids: set[str] = set()
         for user in feed.users:
-            bvids.extend(
-                await self.bilibili.get_user_video_bvids(user.uid, user.limit)
-            )
+            accepted_videos = 0
+            candidates = await self.bilibili.get_user_video_bvids(user.uid, 100)
+            for bvid in candidates:
+                if bvid in seen_bvids:
+                    continue
+                seen_bvids.add(bvid)
 
-        for bvid in dict.fromkeys(bvids):
-            video = await self.bilibili.get_video(bvid)
-            multiple_pages = len(video.pages) > 1
-            for page in video.pages:
-                length = await self.bilibili.get_audio_length(video.bvid, page.cid)
-                title = f"{video.title} - {page.title}" if multiple_pages else video.title
-                episodes.append(
-                    Episode(
-                        bvid=video.bvid,
-                        cid=page.cid,
-                        title=title,
-                        description=video.description,
-                        published_at=video.published_at,
-                        duration=page.duration,
-                        image_url=video.image_url,
-                        media_url=(
-                            f"{self.base_url}/media/{video.bvid}/{page.cid}.m4a"
-                        ),
-                        media_length=length,
+                video = await self.bilibili.get_video(bvid)
+                multiple_pages = len(video.pages) > 1
+                video_episodes: list[Episode] = []
+                for page in video.pages:
+                    try:
+                        length = await self.bilibili.get_audio_length(
+                            video.bvid, page.cid
+                        )
+                    except NoCompatibleAudioError:
+                        logger.warning(
+                            "skip %s/%s: no compatible AAC audio available",
+                            video.bvid,
+                            page.cid,
+                        )
+                        continue
+                    title = (
+                        f"{video.title} - {page.title}"
+                        if multiple_pages
+                        else video.title
                     )
+                    video_episodes.append(
+                        Episode(
+                            bvid=video.bvid,
+                            cid=page.cid,
+                            title=title,
+                            description=video.description,
+                            published_at=video.published_at,
+                            duration=page.duration,
+                            image_url=video.image_url,
+                            media_url=(
+                                f"{self.base_url}/media/{video.bvid}/{page.cid}.m4a"
+                            ),
+                            media_length=length,
+                        )
+                    )
+
+                if video_episodes:
+                    episodes.extend(video_episodes)
+                    accepted_videos += 1
+                    if accepted_videos >= user.limit:
+                        break
+
+            if accepted_videos < user.limit:
+                logger.warning(
+                    "feed %s only found %s/%s compatible videos for UID %s",
+                    feed.slug,
+                    accepted_videos,
+                    user.limit,
+                    user.uid,
                 )
 
         episodes.sort(key=lambda episode: episode.published_at, reverse=True)

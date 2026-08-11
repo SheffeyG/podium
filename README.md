@@ -36,7 +36,9 @@ feeds:
 `users` adds the latest video submissions from a configured user homepage. A
 user can be written as a numeric UID, `uid193147738`, a supported user-space
 URL, or an object with a `limit` from 1 to 100. The default limit is 20. Every
-feed must contain at least one user.
+feed must contain at least one user. `limit` is the target number of compatible
+videos in the feed: Podium scans up to the latest 100 submissions and skips
+videos that do not expose a standalone AAC audio track.
 
 Video user-space APIs may be subject to platform risk control and generally
 need an authenticated browser cookie. Export the complete cookie through the
