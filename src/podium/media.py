@@ -6,8 +6,7 @@ import httpx
 from fastapi import HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 
-from bilibili import BilibiliClient, BilibiliError
-from models import AudioStream
+from .bilibili import AudioStream, BilibiliClient, BilibiliError
 
 
 _PASSTHROUGH_HEADERS = {

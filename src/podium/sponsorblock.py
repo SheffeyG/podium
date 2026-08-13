@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import httpx
 
-from cache import TTLCache
+from .cache import TTLCache
 
 
 SEGMENT_CACHE_TTL = 6 * 60 * 60

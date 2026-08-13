@@ -1,8 +1,8 @@
 import httpx
 from starlette.requests import Request
 
-from media import MediaProxy
-from models import AudioStream
+from podium.media import MediaProxy
+from podium.bilibili import AudioStream
 
 
 class StaticAsyncStream(httpx.AsyncByteStream):

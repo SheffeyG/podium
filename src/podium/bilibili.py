@@ -4,14 +4,46 @@ import base64
 import hashlib
 import re
 import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlencode, urlparse
 
 import httpx
 
-from cache import TTLCache
-from models import AudioStream, VideoInfo, VideoPage
+from .cache import TTLCache
+
+
+@dataclass(frozen=True, slots=True)
+class VideoPage:
+    cid: int
+    page: int
+    title: str
+    duration: int
+
+
+@dataclass(frozen=True, slots=True)
+class VideoInfo:
+    bvid: str
+    title: str
+    description: str
+    owner: str
+    image_url: str
+    published_at: datetime
+    pages: tuple[VideoPage, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class AudioStream:
+    url: str
+    backup_urls: tuple[str, ...]
+    mime_type: str
+    codecs: str
+    bandwidth: int
+
+    @property
+    def urls(self) -> tuple[str, ...]:
+        return (self.url, *self.backup_urls)
 
 
 _BVID_RE = re.compile(r"(BV[0-9A-Za-z]{10})", re.IGNORECASE)

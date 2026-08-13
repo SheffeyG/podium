@@ -2,12 +2,52 @@ from __future__ import annotations
 
 import os
 import re
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-from models import AppConfig, FeedConfig, SponsorBlockConfig, UserSource
+
+@dataclass(frozen=True, slots=True)
+class UserSource:
+    uid: int
+    limit: int = 20
+
+
+@dataclass(frozen=True, slots=True)
+class FeedConfig:
+    slug: str
+    title: str
+    description: str
+    users: tuple[UserSource, ...]
+    author: str = "Podium"
+    language: str = "zh-cn"
+
+
+@dataclass(frozen=True, slots=True)
+class SponsorBlockConfig:
+    enabled: bool = False
+    server_url: str = "https://bsbsb.top"
+    categories: tuple[str, ...] = (
+        "sponsor",
+        "selfpromo",
+        "interaction",
+        "intro",
+        "outro",
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class AppConfig:
+    base_url: str
+    feeds: tuple[FeedConfig, ...]
+    sponsorblock: SponsorBlockConfig = SponsorBlockConfig()
+    sessdata: str | None = field(default=None, repr=False)
+    bilibili_cookie: str | None = field(default=None, repr=False)
+
+    def feed_by_slug(self, slug: str) -> FeedConfig | None:
+        return next((feed for feed in self.feeds if feed.slug == slug), None)
 
 
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")

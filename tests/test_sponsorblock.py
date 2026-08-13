@@ -2,7 +2,8 @@ import json
 
 import httpx
 
-from sponsorblock import (
+from podium.sponsorblock import (
+    SkipSegment,
     SponsorBlockClient,
     normalize_segments,
     segment_hash,
@@ -54,8 +55,6 @@ async def test_fetches_and_filters_skip_segments() -> None:
 
 
 def test_normalizes_segments_and_builds_stable_hash() -> None:
-    from sponsorblock import SkipSegment
-
     segments = (
         SkipSegment(10.0, 20.0, "sponsor", "one"),
         SkipSegment(18.0, 30.0, "intro", "two"),

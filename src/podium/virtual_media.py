@@ -4,27 +4,42 @@ import logging
 import struct
 from collections.abc import AsyncIterator
 from dataclasses import replace
+from typing import Protocol
 
 import httpx
 from fastapi import HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 
-from bilibili import BilibiliClient
-from models import Episode
-from mp4 import (
+from .bilibili import BilibiliClient
+from .feed import Episode
+from .mp4 import (
     Mp4Error,
+    VirtualMediaManifest,
     build_manifest,
     parse_sidx,
     parse_top_level_boxes,
     patch_fragment,
 )
-from protocols import ManifestStore
-from sponsorblock import (
+from .sponsorblock import (
     SponsorBlockClient,
     SponsorBlockError,
     normalize_segments,
     segment_hash,
 )
+
+
+class ManifestStore(Protocol):
+    def save_manifest(
+        self,
+        manifest_id: str,
+        bvid: str,
+        cid: int,
+        manifest: VirtualMediaManifest,
+    ) -> None: ...
+
+    def get_manifest(
+        self, manifest_id: str, bvid: str, cid: int
+    ) -> VirtualMediaManifest | None: ...
 
 
 logger = logging.getLogger(__name__)

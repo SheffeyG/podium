@@ -3,9 +3,9 @@ import struct
 import httpx
 from starlette.requests import Request
 
-from models import AudioStream
-from mp4 import build_manifest, patch_fragment
-from virtual_media import VirtualMediaProxy
+from podium.bilibili import AudioStream
+from podium.mp4 import build_manifest, patch_fragment
+from podium.virtual_media import VirtualMediaProxy
 
 
 def box(box_type: bytes, payload: bytes) -> bytes:

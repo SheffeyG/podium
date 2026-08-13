@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from config import ConfigError, load_config
+from podium.config import ConfigError, load_config
 
 
 def test_example_config_is_valid() -> None:

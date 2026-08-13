@@ -90,7 +90,7 @@ MP4, Podium falls back to the original audio URL.
 
 ```bash
 uv sync
-uv run uvicorn --app-dir src main:app --host 0.0.0.0 --port 8000
+uv run uvicorn podium.app:app --host 0.0.0.0 --port 8000
 ```
 
 Endpoints:

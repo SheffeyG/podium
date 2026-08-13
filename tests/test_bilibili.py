@@ -4,7 +4,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from bilibili import BilibiliClient, parse_bvid
+from podium.bilibili import BilibiliClient, parse_bvid
 
 
 FIXTURES = Path(__file__).parent / "fixtures"

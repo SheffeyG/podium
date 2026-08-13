@@ -5,8 +5,8 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
-from models import StoredEpisode
-from mp4 import ManifestFragment, VirtualMediaManifest
+from .feed import StoredEpisode
+from .mp4 import ManifestFragment, VirtualMediaManifest
 
 
 class FeedStateStore:

@@ -2,11 +2,10 @@ from datetime import datetime, timezone
 
 from lxml import etree
 
-from bilibili import NoCompatibleAudioError
-from database import FeedStateStore
-from feed import FeedRefresher, PodcastService
-from models import FeedConfig, UserSource, VideoInfo, VideoPage
-from rss import ITUNES_NS, RssRenderer
+from podium.bilibili import NoCompatibleAudioError, VideoInfo, VideoPage
+from podium.config import FeedConfig, UserSource
+from podium.feed import ITUNES_NS, FeedRefresher, PodcastService, RssRenderer
+from podium.storage import FeedStateStore
 
 
 class FakeBilibili:

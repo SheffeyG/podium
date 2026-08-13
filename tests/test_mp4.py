@@ -2,7 +2,7 @@ import struct
 
 import pytest
 
-from mp4 import (
+from podium.mp4 import (
     Mp4Error,
     build_manifest,
     parse_sidx,
